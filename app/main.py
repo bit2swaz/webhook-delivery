@@ -3,13 +3,44 @@
 bootstraps the app, registers routers, middleware, and lifecycle events.
 """
 
+from __future__ import annotations
+
+import traceback
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+import structlog
+from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 
+from app.api.middleware import RequestIDMiddleware
 from app.api.routes import auth, deliveries, events, subscribers
+from app.core.logging import configure_logging
+
+
+async def unhandled_exception_handler(request: Request, exc: Exception) -> JSONResponse:
+    """catch-all exception handler - returns a safe 500 json body.
+
+    logs the full traceback server-side but never leaks internal detail
+    to the caller.
+
+    Args:
+        request: the starlette request that triggered the exception.
+        exc: the unhandled exception.
+
+    Returns:
+        a json response with status 500 and a generic error message.
+    """
+    log = structlog.get_logger(__name__)
+    log.error(
+        "unhandled exception",
+        exc_info=exc,
+        traceback=traceback.format_exc(),
+    )
+    return JSONResponse(
+        status_code=500,
+        content={"detail": "Internal server error"},
+    )
 
 
 @asynccontextmanager
@@ -22,7 +53,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     Yields:
         nothing - control returns to fastapi during the app lifetime.
     """
-    # startup
+    configure_logging()
     yield
     # shutdown
 
@@ -45,6 +76,9 @@ def create_app() -> FastAPI:
         docs_url="/docs",
         redoc_url="/redoc",
     )
+
+    application.add_middleware(RequestIDMiddleware)
+    application.add_exception_handler(Exception, unhandled_exception_handler)
 
     @application.get(
         "/health",
