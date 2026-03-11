@@ -66,6 +66,9 @@ addopts = "--cov=app --cov-report=term-missing --cov-report=xml"
 filterwarnings = [
     "ignore::DeprecationWarning",
 ]
+markers = [
+    "docker: docker image build tests (slow, require docker daemon). enable with RUN_DOCKER_TESTS=1",
+]
 
 # --- coverage ---
 

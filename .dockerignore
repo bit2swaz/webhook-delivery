@@ -1,0 +1,45 @@
+# directories to exclude from the docker build context
+# keeps the context small and avoids leaking secrets
+
+# virtual environment
+.venv/
+venv/
+env/
+
+# python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+
+# test and dev tooling
+tests/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+coverage.xml
+.coverage
+*.egg-info/
+dist/
+build/
+
+# git
+.git/
+.gitignore
+.pre-commit-config.yaml
+
+# local secrets and config
+.env
+.env.*
+!.env.example
+
+# documentation
+docs/
+
+# dev requirements (not needed in production image)
+requirements-dev.txt
+
+# editor
+.vscode/
+.idea/

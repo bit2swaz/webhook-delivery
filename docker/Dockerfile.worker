@@ -1,0 +1,31 @@
+# multi-stage build for the celery delivery worker
+# usage: docker build -f docker/Dockerfile.worker -t webhook-worker .
+
+# ---------------------------------------------------------------------------
+# stage 1: builder - install python dependencies
+# ---------------------------------------------------------------------------
+FROM python:3.12-slim AS builder
+
+WORKDIR /build
+
+COPY requirements.txt .
+
+RUN pip install --no-cache-dir --prefix=/install -r requirements.txt
+
+# ---------------------------------------------------------------------------
+# stage 2: runtime - lean worker image
+# ---------------------------------------------------------------------------
+FROM python:3.12-slim AS runtime
+
+RUN addgroup --system app && adduser --system --ingroup app app
+
+COPY --from=builder /install /usr/local
+
+WORKDIR /app
+
+# worker only needs the application source (no alembic - migrations run by api)
+COPY app/ app/
+
+USER app
+
+CMD ["celery", "-A", "app.tasks.celery_app", "worker", "--loglevel=info", "--concurrency=8"]
