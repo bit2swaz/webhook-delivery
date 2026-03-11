@@ -9,6 +9,8 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.responses import JSONResponse
 
+from app.api.routes import auth
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
@@ -57,6 +59,8 @@ def create_app() -> FastAPI:
             json response with status ok and http 200.
         """
         return JSONResponse({"status": "ok"})
+
+    application.include_router(auth.router, prefix="/auth", tags=["auth"])
 
     return application
 

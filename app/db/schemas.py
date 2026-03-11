@@ -99,3 +99,15 @@ class DeliveryLogSummary(BaseModel):
     status: str
     attempt_number: int
     attempted_at: datetime | None = None
+
+
+# ---------------------------------------------------------------------------
+# auth schemas
+# ---------------------------------------------------------------------------
+
+
+class TokenResponse(BaseModel):
+    """response body returned by POST /auth/token."""
+
+    access_token: str
+    token_type: str = "bearer"
