@@ -12,9 +12,10 @@ from contextlib import asynccontextmanager
 import structlog
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
+from prometheus_fastapi_instrumentator import Instrumentator
 
 from app.api.middleware import RequestIDMiddleware
-from app.api.routes import auth, deliveries, events, subscribers
+from app.api.routes import auth, deliveries, events, health, subscribers
 from app.core.logging import configure_logging
 
 
@@ -80,20 +81,13 @@ def create_app() -> FastAPI:
     application.add_middleware(RequestIDMiddleware)
     application.add_exception_handler(Exception, unhandled_exception_handler)
 
-    @application.get(
-        "/health",
-        tags=["ops"],
-        summary="health check",
-        description="returns the liveness status of the api. does not check db or redis.",
+    Instrumentator().instrument(application).expose(
+        application,
+        endpoint="/metrics",
+        include_in_schema=False,
     )
-    async def health() -> JSONResponse:
-        """lightweight liveness probe.
 
-        Returns:
-            json response with status ok and http 200.
-        """
-        return JSONResponse({"status": "ok"})
-
+    application.include_router(health.router)
     application.include_router(auth.router, prefix="/auth", tags=["auth"])
     application.include_router(subscribers.router, prefix="/subscribers", tags=["subscribers"])
     application.include_router(events.router)

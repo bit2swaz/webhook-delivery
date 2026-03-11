@@ -13,6 +13,7 @@ from celery.exceptions import MaxRetriesExceededError
 from app.core.security import sign_payload
 from app.db.models import DeliveryLog, Subscriber
 from app.db.session import SyncSession
+from app.observability.metrics import record_dead, record_duration, record_failed, record_success
 from app.tasks.celery_app import celery_app
 
 # backoff schedule in seconds: 30s, 5m, 30m, 2h, 8h
@@ -66,6 +67,10 @@ def _run_delivery(
 
             db.commit()
 
+        if resp.is_success:
+            record_success(subscriber_id)
+            record_duration(subscriber_id, duration_ms)
+
     except Exception as exc:
         attempt = task_self.request.retries
 
@@ -77,6 +82,7 @@ def _run_delivery(
                 log.next_retry_at = datetime.now(UTC) + timedelta(seconds=countdown)
                 db.commit()
 
+            record_failed(subscriber_id)
             raise task_self.retry(exc=exc, countdown=countdown)
 
         except MaxRetriesExceededError:
@@ -84,6 +90,7 @@ def _run_delivery(
                 log = db.get(DeliveryLog, log_id)
                 log.status = "dead"
                 db.commit()
+            record_dead(subscriber_id)
 
 
 @celery_app.task(  # type: ignore[untyped-decorator]
