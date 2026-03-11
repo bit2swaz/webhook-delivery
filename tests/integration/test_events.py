@@ -37,7 +37,7 @@ async def test_post_event_calls_fanout_delay_with_event_id(authed_client) -> Non
 
     assert resp.status_code == 202
     event_id = resp.json()["event_id"]
-    mock_task.delay.assert_called_once_with(event_id)
+    mock_task.delay.assert_called_once_with(event_id, "payment.completed", {"amount": 99})
 
 
 @pytest.mark.asyncio

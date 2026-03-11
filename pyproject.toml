@@ -33,6 +33,7 @@ ignore = [
     "S101",   # use of assert (needed for pytest)
     "S105",   # hardcoded password (false positives in test fixtures)
     "S106",   # hardcoded password in function args
+    "ANN401", # Any is unavoidable for celery bound-task self and dynamic dispatch
 ]
 
 [tool.ruff.lint.per-file-ignores]

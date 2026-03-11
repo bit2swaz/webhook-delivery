@@ -24,7 +24,7 @@ async def ingest_event(
     """ingest an event, persist it, and enqueue fan-out."""
     event = await create_event(db, data)
     await db.commit()
-    fan_out_event.delay(str(event.id))
+    fan_out_event.delay(str(event.id), event.event_type, event.payload)
     return EventIngestResponse(event_id=event.id, status="queued")
 
 

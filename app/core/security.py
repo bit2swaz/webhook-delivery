@@ -1,5 +1,7 @@
 """jwt security helpers - token creation and decoding."""
 
+import hashlib
+import hmac as _hmac
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
@@ -59,3 +61,17 @@ def decode_token(token: str) -> dict[str, Any]:
             detail="could not validate credentials",
             headers={"WWW-Authenticate": "Bearer"},
         ) from exc
+
+
+def sign_payload(secret: str, body: bytes) -> str:
+    """compute an hmac-sha256 signature over body using secret.
+
+    args:
+        secret: the subscriber's signing secret.
+        body: the raw request body bytes.
+
+    returns:
+        a string of the form 'sha256=<hex_digest>'.
+    """
+    digest = _hmac.new(secret.encode(), body, hashlib.sha256).hexdigest()
+    return f"sha256={digest}"
