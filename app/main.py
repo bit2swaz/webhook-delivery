@@ -9,7 +9,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.responses import JSONResponse
 
-from app.api.routes import auth, subscribers
+from app.api.routes import auth, deliveries, events, subscribers
 
 
 @asynccontextmanager
@@ -62,6 +62,8 @@ def create_app() -> FastAPI:
 
     application.include_router(auth.router, prefix="/auth", tags=["auth"])
     application.include_router(subscribers.router, prefix="/subscribers", tags=["subscribers"])
+    application.include_router(events.router)
+    application.include_router(deliveries.router)
 
     return application
 

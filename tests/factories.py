@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import factory
 
-from app.db.schemas import SubscriberCreate
+from app.db.schemas import EventCreate, SubscriberCreate
 
 
 class SubscriberFactory(factory.Factory):
@@ -18,3 +18,13 @@ class SubscriberFactory(factory.Factory):
     secret = None
     event_types: list[str] = factory.LazyFunction(list)
     enabled: bool = True
+
+
+class EventFactory(factory.Factory):
+    """factory for EventCreate schema instances."""
+
+    class Meta:
+        model = EventCreate
+
+    event_type: str = factory.Sequence(lambda n: f"event.type.{n}")
+    payload: dict = factory.LazyFunction(lambda: {"key": "value"})  # type: ignore[type-arg]

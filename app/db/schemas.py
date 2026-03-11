@@ -102,6 +102,30 @@ class DeliveryLogSummary(BaseModel):
 
 
 # ---------------------------------------------------------------------------
+# event api response schemas
+# ---------------------------------------------------------------------------
+
+
+class EventIngestResponse(BaseModel):
+    """response body returned by POST /events."""
+
+    event_id: uuid.UUID
+    status: str = "queued"
+
+
+class EventDetailResponse(BaseModel):
+    """event representation including all delivery log summaries."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    event_type: str
+    payload: dict  # type: ignore[type-arg]
+    received_at: datetime | None = None
+    deliveries: list[DeliveryLogSummary] = Field(default_factory=list)
+
+
+# ---------------------------------------------------------------------------
 # auth schemas
 # ---------------------------------------------------------------------------
 
@@ -111,3 +135,14 @@ class TokenResponse(BaseModel):
 
     access_token: str
     token_type: str = "bearer"
+
+
+# ---------------------------------------------------------------------------
+# delivery retry response
+# ---------------------------------------------------------------------------
+
+
+class RetryResponse(BaseModel):
+    """response body returned by GET /deliveries/:id/retry."""
+
+    status: str = "requeued"
