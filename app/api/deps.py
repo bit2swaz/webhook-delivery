@@ -6,6 +6,9 @@ from fastapi import Depends
 from fastapi.security import OAuth2PasswordBearer
 
 from app.core.security import decode_token
+from app.db.session import get_db as get_db
+
+__all__ = ["get_db", "oauth2_scheme", "verify_jwt"]
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/token")
 
