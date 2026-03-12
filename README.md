@@ -62,7 +62,7 @@ stateDiagram-v2
 ### 1 — Clone and configure
 
 ```bash
-git clone https://github.com/<your-org>/webhook-delivery.git
+git clone https://github.com/bit2swaz/webhook-delivery.git
 cd webhook-delivery
 cp .env.example .env
 # Edit .env — at minimum set JWT_SECRET to a random value:
