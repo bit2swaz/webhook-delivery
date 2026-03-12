@@ -68,6 +68,7 @@ filterwarnings = [
 ]
 markers = [
     "docker: docker image build tests (slow, require docker daemon). enable with RUN_DOCKER_TESTS=1",
+    "integration: tests that require a live postgresql and redis (tests/integration/)",
 ]
 
 # --- coverage ---

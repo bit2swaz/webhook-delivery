@@ -38,6 +38,10 @@ def _run_delivery(
         log: DeliveryLog = db.get(DeliveryLog, log_id)
         sub: Subscriber = db.get(Subscriber, subscriber_id)
 
+        # extract values before commit expires them and context-exit detaches sub
+        sub_url: str = sub.url
+        sub_secret: str | None = sub.secret
+
         log.status = "delivering"
         log.attempt_number = task_self.request.retries + 1
         log.attempted_at = datetime.now(UTC)
@@ -46,13 +50,13 @@ def _run_delivery(
     try:
         headers = {"Content-Type": "application/json"}
 
-        if sub.secret:
+        if sub_secret:
             body = json.dumps(payload).encode()
-            headers["X-Webhook-Signature"] = sign_payload(sub.secret, body)
+            headers["X-Webhook-Signature"] = sign_payload(sub_secret, body)
 
         start = time.monotonic()
         with httpx.Client(timeout=10.0) as client:
-            resp = client.post(sub.url, json=payload, headers=headers)
+            resp = client.post(sub_url, json=payload, headers=headers)
         duration_ms = int((time.monotonic() - start) * 1000)
 
         with SyncSession() as db:
@@ -62,14 +66,14 @@ def _run_delivery(
 
             if resp.is_success:
                 log.status = "success"
-            else:
-                raise Exception(f"subscriber returned {resp.status_code}")
 
             db.commit()
 
         if resp.is_success:
             record_success(subscriber_id)
             record_duration(subscriber_id, duration_ms)
+        else:
+            raise Exception(f"subscriber returned {resp.status_code}")
 
     except Exception as exc:
         attempt = task_self.request.retries

@@ -2,16 +2,24 @@
 
 from __future__ import annotations
 
+import pytest
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
-from sqlalchemy import text
+from sqlalchemy import create_engine, text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+from sqlalchemy.orm import sessionmaker
 
 from app.core.config import settings
 from app.core.security import create_access_token
 from app.db.models import Base
 from app.db.session import get_db
 from app.main import app
+
+# derive the sync (psycopg2) url for the test database from the async url
+_SYNC_TEST_DATABASE_URL = settings.TEST_DATABASE_URL.replace(
+    "postgresql+asyncpg://",
+    "postgresql+psycopg2://",
+)
 
 
 @pytest_asyncio.fixture
@@ -53,6 +61,47 @@ async def authed_client(test_engine):
         yield client
 
     app.dependency_overrides.pop(get_db, None)
+    async with test_engine.begin() as conn:
+        await conn.execute(
+            text("TRUNCATE TABLE delivery_log, events, subscribers RESTART IDENTITY CASCADE")
+        )
+
+
+# ---------------------------------------------------------------------------
+# sync session factory - used by tests that exercise celery task functions
+# directly (_run_delivery, fan_out_event) with a real test database.
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture
+def sync_test_session_factory():
+    """synchronous sessionmaker (psycopg2) pointed at the test database.
+
+    patch app.tasks.delivery.SyncSession and app.tasks.fanout.SyncSession
+    with this fixture to redirect celery task db writes to the test db.
+    """
+    engine = create_engine(_SYNC_TEST_DATABASE_URL, pool_pre_ping=True)
+    factory: sessionmaker = sessionmaker(  # type: ignore[type-arg]
+        bind=engine,
+        autocommit=False,
+        autoflush=False,
+    )
+    yield factory
+    engine.dispose()
+
+
+@pytest_asyncio.fixture
+async def clean_tables(db_session, test_engine):
+    """truncate all data tables after a test completes.
+
+    depends on db_session so teardown order guarantees we can rollback
+    the async session (releasing its open read transaction) before
+    issuing truncate - otherwise postgresql lock wait hangs forever.
+    """
+    yield
+    # rollback any open transaction on the async session so it releases
+    # all row/table locks before truncate tries to acquire an exclusive lock.
+    await db_session.rollback()
     async with test_engine.begin() as conn:
         await conn.execute(
             text("TRUNCATE TABLE delivery_log, events, subscribers RESTART IDENTITY CASCADE")
