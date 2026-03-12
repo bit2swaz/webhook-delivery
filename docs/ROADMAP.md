@@ -464,7 +464,7 @@
 ### 10.1 — README.md (Root)
 - [ ] 📝 Write `README.md` with:
   - **What this is** — one-paragraph description
-  - **Architecture diagram** (reproduce ASCII art from SSOT, or link Mermaid version)
+  - **Architecture diagram** (Mermaid `flowchart LR` in README, same in SSOT)
   - **Quick Start** — `git clone` → `docker compose up` → `curl` examples, all commands copy-pasteable
   - **Environment Variables** table with descriptions, defaults, and whether required
   - **API Reference** table (all endpoints, method, auth, description)

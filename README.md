@@ -6,53 +6,29 @@ A production-grade async webhook delivery system in Python. Accepts incoming eve
 
 ## Architecture
 
-```
-External Service                Subscribers
-        │                    (your servers)
-        │ POST /events            ▲
-        ▼                         │
-┌──────────────────┐    ┌─────────┴────────┐
-│   FastAPI        │    │  Delivery Worker  │  ← Celery worker
-│   (ingest API)   │    │  (httpx POST)     │
-└────────┬─────────┘    └─────────┬────────┘
-         │                        │
-         ▼                        ▼
-┌────────────────┐    ┌───────────────────┐
-│  Celery Queue  │    │    PostgreSQL      │
-│    (Redis)     │    │  - subscribers     │
-└────────────────┘    │  - events          │
-         │            │  - delivery_log    │
-         └───────────►└───────────────────┘
-                                │
-                       ┌────────▼────────┐
-                       │   Prometheus    │
-                       │   /metrics      │
-                       └─────────────────┘
+```mermaid
+flowchart LR
+    ES([External Service]) -->|"POST /events"| API[FastAPI]
+    API -->|fan_out_event| Q[(Redis Broker)]
+    Q -->|consume| W[Celery Worker]
+    W -->|"httpx POST"| SUB([Subscribers])
+    API <-->|"async SQL"| DB[(PostgreSQL)]
+    W <-->|"sync SQL"| DB
+    API -.->|"/metrics"| PROM([Prometheus])
 ```
 
 ### Delivery State Machine
 
-```
-Event received
-      │
-      ▼
-  fan_out_event → one DeliveryLog per matching subscriber
-      │
-      ▼
- PENDING → DELIVERING → SUCCESS  (2xx response)
-                │
-                └──(non-2xx / timeout)──► FAILED
-                                             │
-                                   (attempt < max_attempts)
-                                             │
-                                             ▼
-                                    RETRY (exponential backoff)
-                                    30s → 5m → 30m → 2h → 8h
-                                             │
-                                   (max_attempts exhausted)
-                                             │
-                                             ▼
-                                         DEAD (no more retries)
+```mermaid
+stateDiagram-v2
+    [*] --> PENDING : DeliveryLog created by fan_out_event
+    PENDING --> DELIVERING : task dispatched
+    DELIVERING --> SUCCESS : HTTP 2xx
+    DELIVERING --> FAILED : non-2xx / timeout
+    FAILED --> DELIVERING : retry (30s→5m→30m→2h→8h)
+    FAILED --> DEAD : max attempts exhausted
+    SUCCESS --> [*]
+    DEAD --> [*]
 ```
 
 ---
