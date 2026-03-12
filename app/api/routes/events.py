@@ -8,6 +8,10 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_db, verify_jwt
+from app.api.openapi_examples import (
+    EVENT_DETAIL_RESPONSE_EXAMPLE,
+    EVENT_INGEST_RESPONSE_EXAMPLE,
+)
 from app.db.schemas import EventCreate, EventDetailResponse, EventIngestResponse
 from app.services.delivery_service import create_event, get_event_with_deliveries
 from app.tasks.fanout import fan_out_event
@@ -15,7 +19,21 @@ from app.tasks.fanout import fan_out_event
 router = APIRouter(prefix="/events", tags=["events"])
 
 
-@router.post("/", status_code=202, response_model=EventIngestResponse)
+@router.post(
+    "/",
+    status_code=202,
+    response_model=EventIngestResponse,
+    summary="Ingest an event",
+    description=(
+        "Persists the event to the database and immediately enqueues the "
+        "`fan_out_event` Celery task. The task creates one `DeliveryLog` row "
+        "per matching subscriber and fires a `deliver_webhook` task for each."
+    ),
+    response_description="The event UUID and queued status.",
+    responses={
+        202: {"content": {"application/json": {"example": EVENT_INGEST_RESPONSE_EXAMPLE}}},
+    },
+)
 async def ingest_event(
     data: EventCreate,
     db: AsyncSession = Depends(get_db),  # noqa: B008
@@ -28,7 +46,21 @@ async def ingest_event(
     return EventIngestResponse(event_id=event.id, status="queued")
 
 
-@router.get("/{event_id}", status_code=200, response_model=EventDetailResponse)
+@router.get(
+    "/{event_id}",
+    status_code=200,
+    response_model=EventDetailResponse,
+    summary="Get event with deliveries",
+    description=(
+        "Returns the event record and a summary of every delivery attempt "
+        "made to all matching subscribers."
+    ),
+    response_description="Event details including all delivery log summaries.",
+    responses={
+        200: {"content": {"application/json": {"example": EVENT_DETAIL_RESPONSE_EXAMPLE}}},
+        404: {"description": "Event not found."},
+    },
+)
 async def get_event(
     event_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),  # noqa: B008

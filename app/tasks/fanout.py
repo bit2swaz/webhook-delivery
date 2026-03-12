@@ -11,13 +11,22 @@ from app.tasks.celery_app import celery_app
 def fan_out_event(event_id: str, event_type: str, payload: dict) -> None:  # type: ignore[type-arg]
     """fan out an event to all matching subscribers.
 
-    creates one delivery log row and fires one deliver_webhook task per
-    subscriber that is enabled and matches the event type.
+    **Trigger:** dispatched by ``POST /events/`` via ``fan_out_event.delay()``
+    immediately after the event row is committed.
 
-    args:
-        event_id: string uuid of the persisted event.
-        event_type: event type string, e.g. 'order.created'.
-        payload: the event payload dict to deliver.
+    **Side effects:**
+    - Creates one ``DeliveryLog`` row per matching subscriber (status=``pending``).
+    - Enqueues one ``deliver_webhook`` task per created log via ``apply_async``.
+    - Subscriber matching rules:
+        - ``enabled=True`` is required.
+        - ``event_types=[]`` (empty list) acts as a wildcard — matches all events.
+        - Otherwise the subscriber's ``event_types`` array must contain
+          ``event_type`` as an exact string match.
+
+    Args:
+        event_id: string uuid of the persisted ``Event`` row.
+        event_type: event type string, e.g. ``'order.created'``.
+        payload: the event payload dict to deliver to each subscriber.
     """
     # import here to avoid circular imports at module load time
     from app.tasks.delivery import deliver_webhook  # noqa: PLC0415

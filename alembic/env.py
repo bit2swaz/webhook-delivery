@@ -71,8 +71,17 @@ def do_run_migrations(connection: object) -> None:
 
 
 async def run_async_migrations() -> None:
-    """in this scenario we need to create an Engine
-    and associate a connection with the context.
+    """create an async engine from alembic.ini config and run migrations.
+
+    alembic's native runner is synchronous, so we bridge the gap by:
+    1. creating an ``AsyncEngine`` via ``async_engine_from_config``.
+    2. opening an async connection.
+    3. handing off to ``do_run_migrations`` via ``run_sync`` — this runs the
+       synchronous ``context.run_migrations()`` call inside the async connection's
+       event loop greenlet, which is the pattern alembic recommends for asyncpg.
+
+    ``NullPool`` is used to avoid connection-pool lifetime issues in a
+    short-lived migration process.
     """
     connectable = async_engine_from_config(
         config.get_section(config.config_ini_section, {}),

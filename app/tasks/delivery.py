@@ -110,12 +110,28 @@ def deliver_webhook(
 ) -> None:
     """deliver a webhook payload to a subscriber's endpoint.
 
-    sets the delivery log status through: pending -> delivering -> success/failed/dead.
-    retries with exponential backoff on failures.
+    **Trigger:** dispatched by ``fan_out_event`` via ``apply_async`` once per
+    matching (event, subscriber) pair, or directly via
+    ``GET /deliveries/{id}/retry`` for manual re-queuing of dead deliveries.
 
-    args:
-        log_id: string uuid of the delivery log row.
-        subscriber_id: string uuid of the target subscriber.
-        payload: the event payload dict to POST.
+    **Side effects:**
+    - Transitions ``DeliveryLog.status``: pending → delivering → success/failed/dead.
+    - Writes ``attempt_number``, ``attempted_at``, ``response_status``,
+      ``duration_ms``, and (on failure) ``next_retry_at`` to the delivery log row.
+    - Increments Prometheus counters via ``record_success``, ``record_failed``,
+      or ``record_dead``.
+    - Adds an ``X-Webhook-Signature: sha256=<hex>`` header when the subscriber
+      has a signing secret configured.
+
+    **Retry behaviour:** retries up to ``len(BACKOFF_SCHEDULE)`` times with
+    countdown values taken from ``BACKOFF_SCHEDULE`` (30s, 5m, 30m, 2h, 8h).
+    After exhausting all retries the delivery log is marked ``dead``.
+
+    Args:
+        self: the bound Celery task instance (provides ``request.retries`` and
+            ``retry()``).
+        log_id: string uuid of the ``DeliveryLog`` row to update.
+        subscriber_id: string uuid of the target ``Subscriber``.
+        payload: the event payload dict to POST as JSON.
     """
     _run_delivery(self, log_id, subscriber_id, payload)
